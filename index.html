@@ -3,115 +3,364 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CSV Zoeker</title>
+<title>Station Zoeker</title>
+
 <style>
-body{font-family:Segoe UI,Arial,sans-serif;background:#0f172a;color:#e5e7eb;margin:0;padding:20px}
-.wrap{max-width:1100px;margin:auto}
-input[type=text]{width:100%;padding:16px;font-size:20px;border-radius:10px;border:1px solid #334155;background:#111827;color:white}
-button{padding:12px 18px;border:0;border-radius:8px;cursor:pointer;background:#2563eb;color:white}
-.row{padding:12px;border-bottom:1px solid #334155;cursor:pointer}
-.row:hover{background:#1e293b}
-.small{color:#94a3b8;font-size:12px}
+body{
+    font-family:Segoe UI,Arial,sans-serif;
+    background:#0f172a;
+    color:#e5e7eb;
+    margin:0;
+    padding:20px;
+}
+
+.wrap{
+    max-width:1200px;
+    margin:auto;
+}
+
+h1{
+    margin-bottom:20px;
+}
+
+#search{
+    width:100%;
+    padding:18px;
+    font-size:22px;
+    border-radius:10px;
+    border:1px solid #334155;
+    background:#111827;
+    color:white;
+    margin-bottom:15px;
+    box-sizing:border-box;
+}
+
+button{
+    padding:12px 20px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    background:#2563eb;
+    color:white;
+    margin-bottom:15px;
+}
+
+#status{
+    margin-bottom:15px;
+    color:#94a3b8;
+}
+
+.row{
+    padding:14px;
+    border-bottom:1px solid #334155;
+    cursor:pointer;
+}
+
+.row:hover{
+    background:#1e293b;
+}
+
+.code{
+    color:#60a5fa;
+    font-weight:bold;
+}
+
+.small{
+    color:#94a3b8;
+    font-size:12px;
+}
 </style>
 </head>
+
 <body>
+
 <div class="wrap">
-<h1>CSV Zoeker</h1>
+
+<h1>Station Zoeker</h1>
+
 <button id="loadBtn">CSV laden</button>
-<input id="fileInput" type="file" accept=".csv" style="display:none">
-<p id="status">Geen CSV geladen</p>
-<input id="search" type="text" placeholder="Zoeken...">
+<input type="file" id="fileInput" accept=".csv" style="display:none">
+
+<div id="status">Stations laden...</div>
+
+<input
+    type="text"
+    id="search"
+    placeholder="Zoek nummer, naam, straat, plaats..."
+>
+
 <div id="results"></div>
+
 </div>
+
 <script>
-let DATA=[];
-const DBNAME='CSVZoekerDB';
-const STORE='files';
+
+let DATA = [];
+
+const DB_NAME = "StationZoeker";
+const STORE = "csv";
 
 function openDB(){
- return new Promise((resolve,reject)=>{
-  const req=indexedDB.open(DBNAME,1);
-  req.onupgradeneeded=()=>req.result.createObjectStore(STORE);
-  req.onsuccess=()=>resolve(req.result);
-  req.onerror=()=>reject(req.error);
- });
+    return new Promise((resolve,reject)=>{
+
+        const req = indexedDB.open(DB_NAME,1);
+
+        req.onupgradeneeded = () => {
+            req.result.createObjectStore(STORE);
+        };
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+
+    });
 }
 
 async function saveCSV(text,name){
- const db=await openDB();
- const tx=db.transaction(STORE,'readwrite');
- tx.objectStore(STORE).put({text,name},'current');
+
+    const db = await openDB();
+
+    const tx =
+        db.transaction(STORE,"readwrite");
+
+    tx.objectStore(STORE)
+      .put({text,name},"current");
 }
 
 async function loadSavedCSV(){
- const db=await openDB();
- return new Promise(resolve=>{
-  const tx=db.transaction(STORE,'readonly');
-  const req=tx.objectStore(STORE).get('current');
-  req.onsuccess=()=>resolve(req.result);
-  req.onerror=()=>resolve(null);
- });
+
+    const db = await openDB();
+
+    return new Promise(resolve=>{
+
+        const tx =
+            db.transaction(STORE,"readonly");
+
+        const req =
+            tx.objectStore(STORE).get("current");
+
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+
+    });
 }
 
 function parseCSV(text){
- const rows=text.split(/\r?\n/).filter(Boolean).map(r=>r.split(';'));
- if(rows.length<2) return [];
- const header=rows.shift();
- const idxNaam=header.findIndex(h=>/naam/i.test(h));
- const idxLat=header.findIndex(h=>/(lat|latitude)/i.test(h));
- const idxLon=header.findIndex(h=>/(lon|longitude)/i.test(h));
- return rows.map(r=>{
-   const raw=(r[idxNaam]||'');
-   const p=raw.split(/\s*,\s*/);
-   return {
-    nummer:p[0]||'', naam:p[1]||'', straat:p[2]||'', huisnr:p[3]||'', pc:p[4]||'', plaats:p[5]||'',
-    lat:parseFloat((r[idxLat]||'').replace(',','.')),
-    lon:parseFloat((r[idxLon]||'').replace(',','.')),
-    raw:raw
-   };
- });
+
+    const rows = text
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .map(r=>r.split(";"));
+
+    if(rows.length < 2){
+        return [];
+    }
+
+    const header = rows.shift();
+
+    const idxNaam =
+        header.findIndex(x=>/naam/i.test(x));
+
+    const idxLat =
+        header.findIndex(x=>/(lat|latitude)/i.test(x));
+
+    const idxLon =
+        header.findIndex(x=>/(lon|longitude)/i.test(x));
+
+    return rows.map(r=>{
+
+        const raw =
+            (r[idxNaam]||"").trim();
+
+        const p =
+            raw.split(/\s*,\s*/);
+
+        return {
+
+            nummer : p[0]||"",
+            naam   : p[1]||"",
+            straat : p[2]||"",
+            huisnr : p[3]||"",
+            pc     : p[4]||"",
+            plaats : p[5]||"",
+
+            lat : parseFloat(
+                (r[idxLat]||"").replace(",",".")
+            ),
+
+            lon : parseFloat(
+                (r[idxLon]||"").replace(",",".")
+            ),
+
+            raw
+
+        };
+
+    });
+
 }
 
-function render(q=''){
- q=q.toLowerCase();
- const out=document.getElementById('results');
- out.innerHTML='';
- const res=DATA.filter(x=>!q || (x.raw||'').toLowerCase().includes(q)).slice(0,300);
- for(const r of res){
-  const d=document.createElement('div');
-  d.className='row';
-  d.innerHTML=`<b>${r.nummer}</b> ${r.naam}<div class='small'>${r.straat} ${r.huisnr} ${r.pc} ${r.plaats}</div>`;
-  d.onclick=()=>window.open(`https://www.google.com/maps/dir/?api=1&destination=${r.lat},${r.lon}`,'_blank');
-  out.appendChild(d);
- }
- document.getElementById('status').textContent=`${res.length} resultaten - dataset bevat ${DATA.length} regels`;
+function render(query=""){
+
+    query = query.toLowerCase();
+
+    const results =
+        document.getElementById("results");
+
+    results.innerHTML = "";
+
+    const filtered =
+        DATA.filter(row=>{
+
+            if(!query) return true;
+
+            return (row.raw||"")
+                .toLowerCase()
+                .includes(query);
+
+        });
+
+    for(const row of filtered.slice(0,300)){
+
+        const div =
+            document.createElement("div");
+
+        div.className = "row";
+
+        div.innerHTML = `
+            <div class="code">${row.nummer}</div>
+            <div>${row.naam}</div>
+            <div class="small">
+                ${row.straat}
+                ${row.huisnr}
+                ${row.pc}
+                ${row.plaats}
+            </div>
+        `;
+
+        div.onclick = ()=>{
+
+            window.open(
+                `https://www.google.com/maps/dir/?api=1&destination=${row.lat},${row.lon}`,
+                "_blank"
+            );
+
+        };
+
+        results.appendChild(div);
+    }
+
+    document.getElementById("status")
+        .innerText =
+        `${filtered.length} resultaten - dataset bevat ${DATA.length} stations`;
 }
 
-document.getElementById('search').addEventListener('input',e=>render(e.target.value));
+async function loadGitHubCSV(){
 
-document.getElementById('loadBtn').onclick=()=>{
- const code=prompt('Voer code in');
- if(code!=='445566'){ alert('Onjuiste code'); return; }
- document.getElementById('fileInput').click();
+    try{
+
+        const response =
+            await fetch("./poi_e_station.csv");
+
+        if(!response.ok){
+            throw new Error();
+        }
+
+        const text =
+            await response.text();
+
+        DATA =
+            parseCSV(text);
+
+        render();
+
+        document.getElementById("status")
+            .innerText =
+            `Stations geladen (${DATA.length})`;
+
+    }
+    catch{
+
+        document.getElementById("status")
+            .innerText =
+            "poi_e_station.csv niet gevonden";
+
+    }
+
+}
+
+document
+.getElementById("search")
+.addEventListener("input",e=>{
+
+    render(e.target.value);
+
+});
+
+document
+.getElementById("loadBtn")
+.onclick = ()=>{
+
+    const code =
+        prompt("Voer code in");
+
+    if(code !== "445566"){
+
+        alert("Onjuiste code");
+        return;
+
+    }
+
+    document
+        .getElementById("fileInput")
+        .click();
+
 };
 
-document.getElementById('fileInput').addEventListener('change', async e=>{
- const f=e.target.files[0];
- if(!f) return;
- const text=await f.text();
- await saveCSV(text,f.name);
- DATA=parseCSV(text);
- render();
+document
+.getElementById("fileInput")
+.addEventListener("change",async e=>{
+
+    const file =
+        e.target.files[0];
+
+    if(!file) return;
+
+    const text =
+        await file.text();
+
+    await saveCSV(text,file.name);
+
+    DATA =
+        parseCSV(text);
+
+    render();
+
 });
 
 (async()=>{
- const saved=await loadSavedCSV();
- if(saved){
-  DATA=parseCSV(saved.text);
-  document.getElementById('status').textContent='Dataset geladen: '+saved.name;
-  render();
- }
+
+    const local =
+        await loadSavedCSV();
+
+    if(local){
+
+        DATA =
+            parseCSV(local.text);
+
+        render();
+
+        document
+            .getElementById("status")
+            .innerText =
+            `Lokale dataset geladen: ${local.name}`;
+
+        return;
+    }
+
+    await loadGitHubCSV();
+
 })();
 </script>
+
 </body>
 </html>
