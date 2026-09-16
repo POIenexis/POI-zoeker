@@ -1,4 +1,4 @@
-const BASE="./",VER="5.1";
+const BASE="./",VER="5.2";
 
 const SRC=[["poi_e_station.csv","Station"],["poi_e_verdeelkast.csv","Verdeelkast"],["poi_g_gasstation.csv","Gasstation"],["poi_g_grondafsluiter.csv","Grondafsluiter"],["poi_e_toiletten.csv","Toilet"]],CATS=["Alles","Station","Verdeelkast","Gasstation","Grondafsluiter","Toilet"];
 let D=[],cat="Alles",P=null,mode="normal",timer;const $=s=>document.querySelector(s),q=$("#q"),get=k=>JSON.parse(localStorage.getItem(k)||"[]"),save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
@@ -25,7 +25,7 @@ function items(){
  if(mode=="fav"){let f=new Set(get("favs"));a=a.filter(i=>f.has(i.k))}
  if(P)a.forEach(i=>i.dist=hav(P.latitude,P.longitude,i.lat,i.lon));
  if(x.compact){a=a.map(i=>({i,n:scoreItem(i,x)})).filter(v=>isFinite(v.n)).sort((a,b)=>b.n-a.n||((a.i.dist??1e9)-(b.i.dist??1e9))).map(v=>v.i)}
- else{let z=$("#sort").value;if(z=="distance"||(z=="auto"&&P&&mode=="normal"))a.sort((a,b)=>(a.dist??1e9)-(b.dist??1e9));}
+ else{let z=$("#sort")?.value||"auto";if(z=="distance"||(z=="auto"&&P&&mode=="normal"))a.sort((a,b)=>(a.dist??1e9)-(b.dist??1e9));}
  return a
 }
 function render(){$("#near")?.classList.toggle("selected",mode=="normal"&&!!P);$("#recentBtn")?.classList.toggle("selected",mode=="recent");$("#favBtn")?.classList.toggle("selected",mode=="fav");let a=items();$("#count").textContent=`${a.length.toLocaleString("nl-NL")} resultaten`;$("#out").innerHTML=a.slice(0,200).map(i=>`<article class="card" data-k="${esc(i.k)}"><div><div class="code">${esc(i.code||i.name||"POI")}</div><div class="name">${esc(i.name)}</div><div class="addr">${esc([i.street,i.house,i.zip,i.city].filter(Boolean).join(" "))}</div>${i.when?`<div class="addr">${new Date(i.when).toLocaleString("nl-NL",{dateStyle:"short",timeStyle:"short"})}</div>`:""}</div><div><div class="badge">${i.type}</div>${isFinite(i.dist)?`<div class="dist">${i.dist<1?Math.round(i.dist*1000)+" m":i.dist.toFixed(1)+" km"}</div>`:""}</div></article>`).join("")||`<div class="empty">${mode=="recent"?"Nog geen recent bezochte locaties.":mode=="fav"?"Nog geen favorieten.":"Geen locaties gevonden."}</div>`;document.querySelectorAll(".card").forEach(x=>x.onclick=()=>detail(D.find(i=>i.k===x.dataset.k)))}
@@ -39,7 +39,7 @@ function movedEnough(a,b){if(!a||!b)return true;return hav(a.latitude,a.longitud
 function setPos(p,silent=false,force=false){
  const next=p.coords,shouldRender=force||movedEnough(lastRenderPos,next);
  P=next;localStorage.setItem("locationEnabled","1");
- if(!q.value)$("#sort").value="distance";
+ if(!q.value&&$("#sort"))$("#sort").value="distance";
  if(shouldRender){lastRenderPos={latitude:P.latitude,longitude:P.longitude};render()}
  if(!silent)toast("Locatie actief")
 }
@@ -47,7 +47,7 @@ function locate(fromSettings=false){if(!navigator.geolocation)return toast("Loca
 function startSmartLocation(){if(!navigator.geolocation||localStorage.getItem("locationEnabled")!=="1")return;navigator.geolocation.getCurrentPosition(p=>setPos(p,true,true),()=>{},{enableHighAccuracy:true,timeout:8000,maximumAge:60000});navigator.geolocation.watchPosition(p=>setPos(p,true,false),()=>{},{enableHighAccuracy:true,maximumAge:30000,timeout:15000})}
 function toast(t){let x=$("#toast");x.textContent=t;x.classList.add("show");setTimeout(()=>x.classList.remove("show"),1700)}
 CATS.forEach(c=>{let b=document.createElement("button");b.className="chip"+(c=="Alles"?" on":"");b.textContent=c;b.onclick=()=>{cat=c;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===b));render()};$("#cats").append(b)});
-q.oninput=()=>{mode="normal";clearTimeout(timer);timer=setTimeout(render,100)};$("#clear").onclick=()=>{q.value="";mode="normal";render()};$("#sort").onchange=()=>{$("#sort").value==="distance"?locate():render()};$("#near").onclick=locate;$("#recentBtn").onclick=()=>{mode="recent";q.value="";render()};$("#favBtn").onclick=()=>{mode="fav";q.value="";render()};
+q.oninput=()=>{mode="normal";clearTimeout(timer);timer=setTimeout(render,100)};$("#clear").onclick=()=>{q.value="";mode="normal";render()};if($("#sort"))$("#sort").onchange=()=>{$("#sort").value==="distance"?locate():render()};$("#near").onclick=locate;$("#recentBtn").onclick=()=>{mode="recent";q.value="";render()};$("#favBtn").onclick=()=>{mode="fav";q.value="";render()};
 document.querySelectorAll(".close").forEach(b=>b.onclick=()=>b.closest("dialog").close());$("#settings").onclick=()=>{$("#navPref").value=localStorage.getItem("navPref")||"auto";$("#dark").checked=localStorage.getItem("dark")=="1";$("#settingsDlg").showModal()};$("#navPref").onchange=e=>{localStorage.setItem("navPref",e.target.value);toast("Navigatievoorkeur opgeslagen")};$("#dark").onchange=e=>{localStorage.setItem("dark",e.target.checked?"1":"0");document.body.classList.toggle("dark",e.target.checked)};$("#clearRecent").onclick=()=>{save("recent",[]);toast("Recente locaties gewist");render()};$("#refresh").onclick=()=>load();$("#enableLocation").onclick=()=>locate(true);
 if(localStorage.getItem("dark")=="1")document.body.classList.add("dark");else document.body.classList.add("autoDark");
 if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("service-worker.js").then(r=>r.update()));
